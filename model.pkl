@@ -1,0 +1,66 @@
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, classification_report
+from sklearn.preprocessing import LabelEncoder
+from sklearn.feature_selection import SelectKBest
+from sklearn.linear_model import LogisticRegression
+
+def convert_int64_to_string_list(int64_array):
+    """Converts a NumPy `int64` object to a list of strings.
+
+    Args:
+        int64_array: A NumPy `int64` object.
+
+    Returns:
+        A list of strings.
+    """
+
+    string_list = []
+    for int64 in int64_array:
+        string_list.append(str(int64))
+    return string_list
+
+# Load dataset with sender, receiver, subject, body, label, and urls columns
+data = pd.read_csv('/home/sai9t/Desktop/IW//Nigerian_5.csv')
+
+# Preprocessing the data
+# Combine sender, receiver, subject, body, and urls into a single text column
+data['text'] = data['sender'].astype(str) + ' ' + data['receiver'].astype(str) + ' ' + data['subject'].astype(str) + ' ' + data['body'].astype(str) + ' ' + data['urls'].astype(str)
+
+# Encode labels
+label_encoder = LabelEncoder()
+data['label'] = label_encoder.fit_transform(data['label'])
+
+# Split the dataset into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(data[['text']], data['label'], test_size=0.2, random_state=42)
+
+# Select the top 1000 features using TfidfVectorizer
+tfidf_vectorizer = TfidfVectorizer(max_features=1000)
+X_train_text = tfidf_vectorizer.fit_transform(X_train['text'])
+
+# Select the best features using SelectKBest
+selector = SelectKBest(k=100)
+X_train_selected = selector.fit_transform(X_train_text, y_train)
+
+# Train a logistic regression model
+model = LogisticRegression()
+model.fit(X_train_selected, y_train)
+
+# Make predictions on the test set
+X_test_text = tfidf_vectorizer.transform(X_test['text'])
+X_test_selected = selector.transform(X_test_text)
+y_pred = model.predict(X_test_selected)
+
+# Convert the `target_names` NumPy `int64` object to a list of strings.
+target_names_list = convert_int64_to_string_list(label_encoder.classes_)
+
+# Evaluate the model
+accuracy = accuracy_score(y_test, y_pred)
+classification_report_output = classification_report(y_test, y_pred, target_names=target_names_list)
+
+print(f"Accuracy: {accuracy:.2f}")
+print("Classification Report:")
+print(classification_report_output)
